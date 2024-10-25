@@ -7,15 +7,16 @@ def lru_cache(maxsize=None):
 
     def decorator(func):
         def wrapper(*args, **kwargs):
-            if args in cache:
-                result = cache.pop(args)
-                cache[args] = result
+            key = (args, tuple(sorted(kwargs.items())))
+            if key in cache:
+                result = cache.pop(key)
+                cache[key] = result
                 return result
             elif maxsize and len(cache) >= maxsize:
                 cache.popitem(last=False)
 
             result = func(*args, **kwargs)
-            cache[args] = result
+            cache[key] = result
 
             return result
 
@@ -49,7 +50,7 @@ if __name__ == '__main__':
     assert sum_many(1, 2, c=3, d=4) == 10
 
     mocked_func = unittest.mock.Mock()
-    mocked_func.side_effect = [1, 2, 3, 4]
+    mocked_func.side_effect = [1, 2, 3, 4, 5]
 
     decorated = lru_cache(maxsize=2)(mocked_func)
     assert decorated(1, 2) == 1
@@ -59,4 +60,6 @@ if __name__ == '__main__':
     assert decorated(5, 6) == 3
     assert decorated(5, 6) == 3
     assert decorated(1, 2) == 4
-    assert mocked_func.call_count == 4
+    assert decorated(1, 2, c=3, d=4) == 5
+    assert decorated(1, 2, c=3, d=4) == 5
+    assert mocked_func.call_count == 5

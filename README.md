@@ -1,3 +1,4 @@
 # Tasks
 
-1. [Decorator task](https://github.com/rulen111/razvitie-itk/blob/main/decorator/main.py)
+1. [Decorator cache task](decorator_cache/main.py)
+2. [Decorator access task](decorator_access/main.py)

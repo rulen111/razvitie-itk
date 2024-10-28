@@ -8,3 +8,4 @@
 2. [Module 2](module_2)
 3. [Module 3](module_3)
    1. [Async HTTP](module_3/async_http/main.py)
+   2. [Parallel Calc](module_3/parallel_calc/main.py)

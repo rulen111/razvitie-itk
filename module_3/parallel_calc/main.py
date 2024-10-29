@@ -1,4 +1,3 @@
-import math
 import random
 import os
 import time
@@ -61,19 +60,20 @@ def worker(input: Queue, output: Queue) -> None:
         output.put(result)
 
 
-# def time_func(func):
-#     def wrapper(*args, **kwargs):
-#         t_start = time.perf_counter()
-#         result = func(*args, **kwargs)
-#         all_time = time.perf_counter() - t_start
-#         PERF_LOG[func.__name__] = all_time
-#
-#         return result
-#
-#     return wrapper
+def time_func(func, *args, **kwargs):
+    """
+    Calculates func execution time
+    :param func: function to time
+    :param args: function args
+    :param kwargs: function kwargs
+    :return: execution time and func return
+    """
+    t_start = time.perf_counter()
+    result = func(*args, **kwargs)
+    all_time = time.perf_counter() - t_start
+    return all_time, result
 
 
-# @time_func
 def run_single_thread(numbers: list[int]) -> list[int]:
     """
     Run number processing in a single thread
@@ -87,7 +87,6 @@ def run_single_thread(numbers: list[int]) -> list[int]:
     return results
 
 
-# @time_func
 def run_tpe(numbers: list[int]) -> list[int]:
     """
     Run number processing in ThreadPoolExecutor
@@ -100,7 +99,6 @@ def run_tpe(numbers: list[int]) -> list[int]:
     return results
 
 
-# @time_func
 def run_mp_pool(numbers: list[int]) -> list[int]:
     """
     Run number processing in multiprocessing.Pool
@@ -113,7 +111,6 @@ def run_mp_pool(numbers: list[int]) -> list[int]:
     return results
 
 
-# @time_func
 def run_mp_process(numbers: list[int]) -> list[int]:
     """
     Run number processing in multiprocessing.Process
@@ -165,39 +162,15 @@ def test_perf(count: int) -> (list, list):
     print(f"Success! Generated {len(numbers_list)} numbers.", "\n--")
     perf_log = list()
 
-    print("Starting processing using single thread...")
-    t_start = time.perf_counter()
-    results_st = run_single_thread(numbers_list)
-    all_time = time.perf_counter() - t_start
-    # perf_log[run_single_thread.__name__] = all_time
-    perf_log.append(all_time)
-    print(f"Success! Processed {len(results_st)} numbers using single thread in {all_time} seconds.", "\n--")
+    all_result = []
+    for func in [run_single_thread, run_tpe, run_mp_pool, run_mp_process]:
+        print(f"Starting processing using {func.__name__}...")
+        all_time, results = time_func(func, numbers_list)
+        perf_log.append(all_time)
+        all_result.append(results)
+        print(f"Success! Processed {len(results)} numbers using {func.__name__} in {all_time} seconds.", "\n--")
 
-    print("Starting processing using ThreadPoolExecutor...")
-    t_start = time.perf_counter()
-    results_tpe = run_tpe(numbers_list)
-    all_time = time.perf_counter() - t_start
-    # perf_log[run_tpe.__name__] = all_time
-    perf_log.append(all_time)
-    print(f"Success! Processed {len(results_tpe)} numbers using TPE in {all_time} seconds.", "\n--")
-
-    print("Starting processing using multiprocessing.Pool...")
-    t_start = time.perf_counter()
-    results_mppool = run_mp_pool(numbers_list)
-    all_time = time.perf_counter() - t_start
-    # perf_log[run_mp_pool.__name__] = all_time
-    perf_log.append(all_time)
-    print(f"Success! Processed {len(results_mppool)} numbers using mp.Pool in {all_time} seconds.", "\n--")
-
-    print("Starting processing using Process and Queue...")
-    t_start = time.perf_counter()
-    results_mp_process = run_mp_process(numbers_list)
-    all_time = time.perf_counter() - t_start
-    # perf_log[run_mp_process.__name__] = all_time
-    perf_log.append(all_time)
-    print(f"Success! Processed {len(results_mp_process)} numbers using Process and Queue in {all_time} seconds.", "\n--")
-
-    data = zip(numbers_list, results_st, results_tpe, results_mppool, results_mp_process)
+    data = zip(numbers_list, *all_result)
 
     return data, perf_log
 

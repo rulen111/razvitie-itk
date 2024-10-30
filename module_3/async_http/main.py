@@ -1,8 +1,10 @@
 import asyncio
+import time
 import aiohttp
 import json
 
-CONCURRENT_REQUESTS = 5
+CONCURRENT_REQUESTS = 10
+NUMBER_OF_WORKERS = 10
 
 URLS = [
     "https://example.com",
@@ -50,6 +52,21 @@ async def sem_fetch(sem: asyncio.Semaphore, url: str, session: aiohttp.ClientSes
         outfile.write("\n")
 
 
+async def worker(queue: asyncio.Queue, sem: asyncio.Semaphore, session: aiohttp.ClientSession, outfile) -> None:
+    """
+    Coroutine to consume work
+    :param queue: asyncio.Queue object with urls to be processed
+    :param sem: asyncio.Semaphore object
+    :param session: aiohttp.ClientSession object
+    :param outfile: file-like outfile
+    :return: None
+    """
+    while True:
+        url = await queue.get()
+        await sem_fetch(sem, url, session, outfile)
+        queue.task_done()
+
+
 async def fetch_urls(urls: list[str], file_path: str) -> None:
     """
     Run fetching for url list
@@ -57,15 +74,29 @@ async def fetch_urls(urls: list[str], file_path: str) -> None:
     :param file_path: outfile path
     :return: None
     """
-    tasks = []
     sem = asyncio.Semaphore(CONCURRENT_REQUESTS)
+    queue = asyncio.Queue()
+    for url in urls:
+        queue.put_nowait(url)
+
     with open(file_path, "a") as f:
         async with aiohttp.ClientSession() as session:
-            for url in urls:
-                task = asyncio.create_task(sem_fetch(sem, url, session, f))
+            tasks = []
+            for i in range(NUMBER_OF_WORKERS):
+                task = asyncio.create_task(worker(queue, sem, session, f))
                 tasks.append(task)
-            await asyncio.gather(*tasks)
+
+            await queue.join()
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
 
 
 if __name__ == '__main__':
-    asyncio.run(fetch_urls(URLS, './results.jsonl'))
+    # asyncio.run(fetch_urls(URLS, './results.jsonl'))
+    urls = [f"https://httpbin.org/status/{code}" for code in range(200, 600)]
+    print(f"Processing {len(urls)} urls...")
+    t_start = time.perf_counter()
+    asyncio.run(fetch_urls(urls, './results.jsonl'))
+    exec_time = time.perf_counter() - t_start
+    print(f"Done in {exec_time} seconds")

@@ -3,17 +3,18 @@ import time
 import aiohttp
 import json
 
-CONCURRENT_REQUESTS = 10
+# Number of high level coroutines to start concurrently
 NUMBER_OF_WORKERS = 10
 
-URLS = [
-    "https://example.com",
-    "https://httpbin.org/status/404",
-    "https://nonexistent.url",
-    "https://httpbin.org/status/200",
-    "https://httpbin.org/status/500",
-    "https://google.com",
-]
+# URLS = [
+#     "https://example.com",
+#     "https://httpbin.org/status/404",
+#     "https://nonexistent.url",
+#     "https://httpbin.org/status/200",
+#     "https://httpbin.org/status/500",
+#     "https://google.com",
+# ]
+URLS = [f"https://httpbin.org/status/{code}" for code in range(200, 600)]
 
 
 async def fetch(url: str, session: aiohttp.ClientSession) -> int:
@@ -36,67 +37,76 @@ async def fetch(url: str, session: aiohttp.ClientSession) -> int:
         return 3
 
 
-async def sem_fetch(sem: asyncio.Semaphore, url: str, session: aiohttp.ClientSession, outfile) -> None:
+async def populate_queue(input_queue: asyncio.Queue, urls: list[str]) -> None:
     """
-    Bind fetch function to semaphore
-    :param sem: asyncio.Semaphore object
-    :param url: string url address
-    :param session: aiohttp.ClientSession object
-    :param outfile: file-like outfile
+    Populate input queue with values and add None at the end to stop workers
+    :param input_queue: asyncio.Queue for urls
+    :param urls: list of string url addresses to be fetched
     :return: None
     """
-    async with sem:
-        status = await fetch(url, session)
-        result = {"url": url, "status_code": status}
-        json.dump(result, outfile)
-        outfile.write("\n")
+    for url in urls:
+        await input_queue.put(url)
+
+    for _ in range(NUMBER_OF_WORKERS):
+        await input_queue.put(None)
 
 
-async def worker(queue: asyncio.Queue, sem: asyncio.Semaphore, session: aiohttp.ClientSession, outfile) -> None:
+async def fetch_urls(input_queue: asyncio.Queue, output_queue: asyncio.Queue, session: aiohttp.ClientSession) -> None:
     """
-    Coroutine to consume work
-    :param queue: asyncio.Queue object with urls to be processed
-    :param sem: asyncio.Semaphore object
-    :param session: aiohttp.ClientSession object
-    :param outfile: file-like outfile
+    Start fetching urls from input queue and writing results to output queue
+    :param input_queue: asyncio.Queue populated with urls
+    :param output_queue: asyncio.Queue for fetching results
+    :param session: aiohttp.ClientSession for making requests
     :return: None
     """
     while True:
-        url = await queue.get()
-        await sem_fetch(sem, url, session, outfile)
-        queue.task_done()
+        url = await input_queue.get()
+        if url is None:
+            await output_queue.put(None)
+            break
+        else:
+            status = await fetch(url, session)
+            result = {"url": url, "status_code": status}
+            await output_queue.put(result)
 
 
-async def fetch_urls(urls: list[str], file_path: str) -> None:
+async def write_results(input_queue: asyncio.Queue, outfile) -> None:
     """
-    Run fetching for url list
-    :param urls: list of string url addresses
-    :param file_path: outfile path
+    Start writing results to output file line by line
+    :param input_queue: asyncio.Queue populated with fetching results
+    :param outfile: file-like object to write to
     :return: None
     """
-    sem = asyncio.Semaphore(CONCURRENT_REQUESTS)
-    queue = asyncio.Queue()
-    for url in urls:
-        queue.put_nowait(url)
+    while True:
+        line = await input_queue.get()
+        if line is None:
+            break
+        else:
+            json.dump(line, outfile)
+            outfile.write("\n")
 
-    with open(file_path, "a") as f:
+
+async def main():
+    print(f"Processing {len(URLS)} urls...")
+    t_start = time.perf_counter()
+
+    input_queue = asyncio.Queue(len(URLS))
+    output_queue = asyncio.Queue(len(URLS))
+
+    with open("./results.jsonl", "a") as f:
         async with aiohttp.ClientSession() as session:
-            tasks = []
+            tasks = [asyncio.create_task(populate_queue(input_queue, URLS))]
             for i in range(NUMBER_OF_WORKERS):
-                task = asyncio.create_task(worker(queue, sem, session, f))
-                tasks.append(task)
+                tasks += [
+                    asyncio.create_task(fetch_urls(input_queue, output_queue, session)),
+                    asyncio.create_task(write_results(output_queue, f))
+                ]
 
-            await queue.join()
-            for task in tasks:
-                task.cancel()
-            await asyncio.gather(*tasks, return_exceptions=True)
+            await asyncio.gather(*tasks)
+
+    exec_time = time.perf_counter() - t_start
+    print(f"Done in {exec_time} seconds")
 
 
 if __name__ == '__main__':
-    # asyncio.run(fetch_urls(URLS, './results.jsonl'))
-    urls = [f"https://httpbin.org/status/{code}" for code in range(200, 600)]
-    print(f"Processing {len(urls)} urls...")
-    t_start = time.perf_counter()
-    asyncio.run(fetch_urls(urls, './results.jsonl'))
-    exec_time = time.perf_counter() - t_start
-    print(f"Done in {exec_time} seconds")
+    asyncio.run(main())

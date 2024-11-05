@@ -1,0 +1,140 @@
+[
+  {
+    "model": "books.book",
+    "pk": 1,
+    "fields": {
+      "title": "Гарри Поттер и узник Азкабана",
+      "author": 1,
+      "count": 7
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 2,
+    "fields": {
+      "title": "Гарри Поттер и Философский камень",
+      "author": 1,
+      "count": 1
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 3,
+    "fields": {
+      "title": "Гарри Поттер и Дары Смерти",
+      "author": 1,
+      "count": 3
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 4,
+    "fields": {
+      "title": "Зелёная миля",
+      "author": 2,
+      "count": 1
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 5,
+    "fields": {
+      "title": "Побег из Шоушенка",
+      "author": 2,
+      "count": 6
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 6,
+    "fields": {
+      "title": "Весь Шерлок Холмс",
+      "author": 3,
+      "count": 4
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 7,
+    "fields": {
+      "title": "Властелин Колец: Возвращение короля",
+      "author": 4,
+      "count": 1
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 8,
+    "fields": {
+      "title": "Властелин колец. Две твердыни",
+      "author": 4,
+      "count": 2
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 9,
+    "fields": {
+      "title": "Граф Монте-Кристо",
+      "author": 5,
+      "count": 3
+    }
+  },
+  {
+    "model": "books.book",
+    "pk": 10,
+    "fields": {
+      "title": "В списках не значился",
+      "author": 6,
+      "count": 5
+    }
+  },
+  {
+    "model": "books.author",
+    "pk": 1,
+    "fields": {
+      "first_name": "Джоан",
+      "last_name": "Роулинг"
+    }
+  },
+  {
+    "model": "books.author",
+    "pk": 2,
+    "fields": {
+      "first_name": "Стивен",
+      "last_name": "Кинг"
+    }
+  },
+  {
+    "model": "books.author",
+    "pk": 3,
+    "fields": {
+      "first_name": "Артур",
+      "last_name": "Конан Дойл"
+    }
+  },
+  {
+    "model": "books.author",
+    "pk": 4,
+    "fields": {
+      "first_name": "Джон",
+      "last_name": "Р. Р. Толкин"
+    }
+  },
+  {
+    "model": "books.author",
+    "pk": 5,
+    "fields": {
+      "first_name": "Александр",
+      "last_name": "Дюма"
+    }
+  },
+  {
+    "model": "books.author",
+    "pk": 6,
+    "fields": {
+      "first_name": "Борис",
+      "last_name": "Васильев"
+    }
+  }
+]

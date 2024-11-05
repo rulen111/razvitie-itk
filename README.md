@@ -10,3 +10,6 @@
    2. [Parallel Calc](module_3/parallel_calc/main.py)
 3. [Module 6](module_6)
    1. [WSGI func](module_6/wsgi_func/main.py)
+
+
+[Book Store Task](book_store)

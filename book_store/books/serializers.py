@@ -11,7 +11,7 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 
     def __init__(self, *args, **kwargs):
         # Don't pass the 'fields' arg up to the superclass
-        fields = kwargs.pop('fields', None)
+        fields = kwargs.pop("fields", None)
 
         # Instantiate the superclass normally
         super().__init__(*args, **kwargs)
@@ -27,7 +27,8 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 class BookSerializer(DynamicFieldsModelSerializer):
     class Meta:
         model = Book
-        fields = ["id", "title", "author", "count"]
+        # fields = ["id", "title", "author", "count"]
+        fields = "__all__"
 
 
 class AuthorSerializer(serializers.ModelSerializer):
@@ -35,4 +36,5 @@ class AuthorSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Author
-        fields = ["id", "first_name", "last_name", "books"]
+        # fields = ["id", "first_name", "last_name", "books"]
+        fields = "__all__"

@@ -1,5 +1,6 @@
 import psycopg
 import asyncio
+import random
 
 DB_NAME = "postgres_task_queue"
 DB_USER = "postgres"
@@ -41,6 +42,12 @@ async def flush_db(cur):
         """)
 
 
+async def run_in_transaction(conn, func, *args, **kwargs):
+    async with conn.transaction():
+        result = await func(*args, **kwargs)
+        return result
+
+
 async def add_task(cur, task_name):
     await cur.execute("""
         INSERT INTO tasks (task_name) VALUES
@@ -60,34 +67,42 @@ async def fetch_task(cur, worker_id):
         UPDATE tasks SET status = 'processing', worker_id = %s
             FROM row_for_update AS rfu
             WHERE tasks.id = rfu.id
-            RETURNING tasks.id;
+            RETURNING tasks.id, tasks.task_name;
         """, (worker_id,))
 
-    task = await cur.fetchone()
-    return task
+    task_id, task_name = await cur.fetchone()
+    return task_id, task_name
 
 
-async def do_task(cur, task):
-    pass
+async def do_task(cur, task_id):
+    await asyncio.sleep(random.randint(1, 10))
+    await cur.execute("""
+        SELECT id, status FROM tasks
+            WHERE id = %s FOR UPDATE
+        
+        UPDATE tasks SET status = 'completed'
+        """, (task_id,))
 
 
 async def main():
     async with await psycopg.AsyncConnection.connect(
-            f"dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}") as aconn:
+            f"dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}", autocommit=True) as aconn:
         async with aconn.cursor() as acur:
+
             await flush_db(acur)
             await create_table(acur)
             for task_name in range(1, 11):
-                await add_task(acur, task_name)
-            # task = await fetch_task(acur, 1)
-            await aconn.commit()
+                await add_task(acur, f"task_{task_name}")
+
             await asyncio.sleep(3)
             for worker_id in range(1, 11):
-                task = await fetch_task(acur, worker_id)
+                task = await run_in_transaction(aconn, fetch_task, acur, worker_id)
                 print(task)
-            # print(task)
-            # async for record in acur:
-            #     print(record)
+                # async with aconn.transaction():
+                #     print(f"Worker {worker_id} fetching task...")
+                #     task = await fetch_task(acur, worker_id)
+                #     print(f"Worker {worker_id} fetched task {task}")
+                #     print(task)
 
 
 if __name__ == "__main__":

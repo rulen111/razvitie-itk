@@ -1,3 +1,5 @@
+from typing import Callable, Any
+
 import psycopg
 import asyncio
 import random
@@ -7,7 +9,12 @@ DB_USER = "postgres"
 DB_PASSWORD = "postgres"
 
 
-async def create_table(cur):
+async def create_table(cur: psycopg.AsyncCursor) -> None:
+    """
+    Create enum type, tasks table and a trigger function for automatic timestamping
+    :param cur: psycopg.AsyncCursor object
+    :return: None
+    """
     await cur.execute("""
         CREATE TYPE status_type AS ENUM ('pending', 'processing', 'completed');
         
@@ -34,7 +41,12 @@ async def create_table(cur):
         """)
 
 
-async def flush_db(cur):
+async def flush_db(cur: psycopg.AsyncCursor) -> None:
+    """
+    Flush database removing table, type and a function
+    :param cur: psycopg.AsyncCursor object
+    :return: None
+    """
     await cur.execute("""
         DROP TABLE IF EXISTS tasks;
         DROP TYPE IF EXISTS status_type;
@@ -42,20 +54,40 @@ async def flush_db(cur):
         """)
 
 
-async def run_in_transaction(conn, func, *args, **kwargs):
+async def run_in_transaction(conn: psycopg.AsyncConnection, func: Callable, *args, **kwargs) -> Any:
+    """
+    Run given function inside transaction context
+    :param conn: psycopg.AsyncConnectio object
+    :param func: callable object
+    :param args: args to pass to func
+    :param kwargs: kwargs to pass to func
+    :return: Any
+    """
     async with conn.transaction():
         result = await func(*args, **kwargs)
         return result
 
 
-async def add_task(cur, task_name):
+async def add_task(cur: psycopg.AsyncCursor, task_name: str) -> None:
+    """
+    Insert new task into database
+    :param cur: psycopg.AsyncCursor object
+    :param task_name: name or description of a new task
+    :return: None
+    """
     await cur.execute("""
         INSERT INTO tasks (task_name) VALUES
-        (%s)
+        (%s);
         """, (task_name,))
 
 
-async def fetch_task(cur, worker_id):
+async def fetch_task(cur: psycopg.AsyncCursor, worker_id: int) -> tuple[int, str]:
+    """
+    Fetch task and assign it to given worker process
+    :param cur: psycopg.AsyncCursor object
+    :param worker_id: int id of a worker process
+    :return: id of the task, name or description of the task
+    """
     await cur.execute("""
         WITH row_for_update AS (
             SELECT id, task_name, status, worker_id FROM tasks
@@ -63,7 +95,6 @@ async def fetch_task(cur, worker_id):
                 FOR UPDATE SKIP LOCKED
                 LIMIT 1
         )
-        
         UPDATE tasks SET status = 'processing', worker_id = %s
             FROM row_for_update AS rfu
             WHERE tasks.id = rfu.id
@@ -74,35 +105,38 @@ async def fetch_task(cur, worker_id):
     return task_id, task_name
 
 
-async def do_task(cur, task_id):
-    await asyncio.sleep(random.randint(1, 10))
+async def do_task(cur: psycopg.AsyncCursor, task_id: int, worker_id: int) -> None:
+    """
+    Simulate work done before completing given task
+    :param cur: psycopg.AsyncCursor object
+    :param task_id: int id of a task
+    :param worker_id: int id of a worker process
+    :return: None
+    """
+    await asyncio.sleep(random.uniform(0., 1.))
     await cur.execute("""
-        SELECT id, status FROM tasks
-            WHERE id = %s FOR UPDATE
-        
         UPDATE tasks SET status = 'completed'
-        """, (task_id,))
+            WHERE id = %(task_id)s AND worker_id = %(worker_id)s;
+        """, {"task_id": task_id, "worker_id": worker_id})
 
 
 async def main():
-    async with await psycopg.AsyncConnection.connect(
-            f"dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}", autocommit=True) as aconn:
+    conn_string = f"dbname={DB_NAME} user={DB_USER} password={DB_PASSWORD}"
+    async with await psycopg.AsyncConnection.connect(conn_string, autocommit=True) as aconn:
         async with aconn.cursor() as acur:
-
+            # Flush db for clean start and create needed resources
             await flush_db(acur)
             await create_table(acur)
-            for task_name in range(1, 11):
+
+            # Populate task table with random tasks
+            for task_name in range(1, 41):
                 await add_task(acur, f"task_{task_name}")
 
-            await asyncio.sleep(3)
-            for worker_id in range(1, 11):
-                task = await run_in_transaction(aconn, fetch_task, acur, worker_id)
-                print(task)
-                # async with aconn.transaction():
-                #     print(f"Worker {worker_id} fetching task...")
-                #     task = await fetch_task(acur, worker_id)
-                #     print(f"Worker {worker_id} fetched task {task}")
-                #     print(task)
+            # Simulate some kind of task queue usage
+            for worker_id in range(1, 21):
+                task_id, _ = await run_in_transaction(aconn, fetch_task, acur, worker_id)
+                if worker_id % 2 == 0:
+                    await run_in_transaction(aconn, do_task, acur, task_id, worker_id)
 
 
 if __name__ == "__main__":

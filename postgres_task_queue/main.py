@@ -8,7 +8,7 @@ DB_PASSWORD = "postgres"
 
 async def create_table(cur):
     await cur.execute("""
-        CREATE TYPE IF NOT EXISTS status_type AS ENUM ('pending', 'processing', 'completed');
+        CREATE TYPE status_type AS ENUM ('pending', 'processing', 'completed');
         
         CREATE TABLE IF NOT EXISTS tasks (
           id SERIAL PRIMARY KEY,
@@ -43,15 +43,13 @@ async def flush_db(cur):
 
 async def add_task(cur, task_name):
     await cur.execute("""
-        INSERT INTO tasks task_name VALUES
+        INSERT INTO tasks (task_name) VALUES
         (%s)
         """, (task_name,))
 
 
 async def fetch_task(cur, worker_id):
     await cur.execute("""
-        BEGIN;
-        
         WITH row_for_update AS (
             SELECT id, task_name, status, worker_id FROM tasks
                 WHERE status = 'pending' ORDER BY updated_at 
@@ -59,13 +57,13 @@ async def fetch_task(cur, worker_id):
                 LIMIT 1
         )
         
-        UPDATE tasks SET status = 'processing', worker_id = (%s)
+        UPDATE tasks SET status = 'processing', worker_id = %s
             FROM row_for_update AS rfu
-            WHERE tasks.id = rfu.id;
-        
-        COMMIT;
+            WHERE tasks.id = rfu.id
+            RETURNING tasks.id;
         """, (worker_id,))
-    task = await cur.fetchall()
+
+    task = await cur.fetchone()
     return task
 
 
@@ -81,10 +79,15 @@ async def main():
             await create_table(acur)
             for task_name in range(1, 11):
                 await add_task(acur, task_name)
-            task = await fetch_task(acur, 1)
+            # task = await fetch_task(acur, 1)
+            await aconn.commit()
+            await asyncio.sleep(3)
+            for worker_id in range(1, 11):
+                task = await fetch_task(acur, worker_id)
+                print(task)
             # print(task)
-            async for record in acur:
-                print(record)
+            # async for record in acur:
+            #     print(record)
 
 
 if __name__ == "__main__":

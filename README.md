@@ -14,6 +14,8 @@
 
 [Book Store Task](book_store)
 
-[Postgres Task Queue](postgres_task_queue)
+[Postgres Task Queue](postgres_task_queue/main.py)
 
-[Redis Queue](redis_queue)
+[Redis Queue](redis_queue/main.py)
+
+[Rate Limiter](rate_limiter/main.py)

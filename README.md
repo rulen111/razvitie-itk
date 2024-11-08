@@ -19,3 +19,5 @@
 [Redis Queue](redis_queue/main.py)
 
 [Rate Limiter](rate_limiter/main.py)
+
+[Decorator Lock](single_decorator/main.py)

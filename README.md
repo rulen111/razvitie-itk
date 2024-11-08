@@ -13,4 +13,7 @@
 
 
 [Book Store Task](book_store)
+
 [Postgres Task Queue](postgres_task_queue)
+
+[Redis Queue](redis_queue)

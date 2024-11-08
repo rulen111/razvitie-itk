@@ -93,7 +93,7 @@ async def main():
     input_queue = asyncio.Queue(len(URLS))
     output_queue = asyncio.Queue(len(URLS))
 
-    with open("./results.jsonl", "a") as f:
+    with open("results.jsonl", "a") as f:
         async with aiohttp.ClientSession() as session:
             tasks = [asyncio.create_task(populate_queue(input_queue, URLS))]
             for i in range(NUMBER_OF_WORKERS):

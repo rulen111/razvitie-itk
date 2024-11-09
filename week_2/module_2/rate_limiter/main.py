@@ -19,15 +19,12 @@ class RateLimiter:
         self.period = period
 
     def test(self) -> bool:
-        self.client.set(self.key, self.limit, nx=True, ex=int(self.period.total_seconds()))
-        limit_val = self.client.get(self.key)
+        with self.client.lock("lock:" + self.key):
+            count = self.client.incr(self.key)
+            if count == 1:
+                self.client.expire(self.key, int(self.period.total_seconds()))
 
-        if limit_val and int(limit_val) > 0:
-            self.client.decrby(self.key, 1)
-
-            return True
-
-        return False
+            return count <= self.limit
 
 
 def make_api_request(rate_limiter: RateLimiter):
@@ -40,7 +37,9 @@ def make_api_request(rate_limiter: RateLimiter):
 
 if __name__ == '__main__':
     r_client = redis.Redis()
-    rate_limiter = RateLimiter(r_client, "test", 5, datetime.timedelta(seconds=3))
+    rate_limiter = RateLimiter(
+        r_client, f"rate_limit:{make_api_request.__name__}", 5, datetime.timedelta(seconds=3)
+    )
 
     for _ in range(50):
         time.sleep(random.randint(0, 1))
